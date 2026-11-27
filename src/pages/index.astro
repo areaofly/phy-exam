@@ -1,0 +1,694 @@
+---
+// 广南省物理实验操作考试系统 —— 模拟网站（仅演示，不连接真实硬件）
+// 界面依据《用伏安法测小电珠的电阻-instr.doc》与《用伏安法测小电珠的电阻-软件大概界面.ppt》
+// 适配 1920×1080：所有内容一屏显示；
+// 登录后进入全屏（右下角提示按 F11 退出）；
+// 电压/电流：数值大小不作要求 → 数值分 3' 全部给分，仅按小数点位数评 2'；
+// 电阻按 小数点 2' + 计算精度 3'(R=U/I) 给分；平均值 R=(R1+R2+R3)/3 同理。
+---
+
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>广南省物理实验操作考试系统</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+      background: #e8ecf1; min-height: 100vh; color: #222; font-size: 19px;
+    }
+    .topbar {
+      background: linear-gradient(180deg, #1a4f9c 0%, #123b7a 100%);
+      color: #fff; padding: 12px 36px; display: flex; align-items: center;
+      justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    .topbar h1 { font-size: 28px; letter-spacing: 3px; font-weight: 700; }
+    .topbar .sub { font-size: 15px; opacity: .85; }
+    .exam-stage { max-width: 1620px; margin: 0 auto; padding: 12px 22px 30px; }
+    .screen { display: none; }
+    .screen.active { display: block; animation: fadeIn .3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: none;} }
+    .card { background: #fff; border-radius: 12px; padding: 18px 30px; box-shadow: 0 2px 12px rgba(0,0,0,.08); margin-bottom: 14px; }
+    .card h2 { color: #1a4f9c; font-size: 21px; border-left: 5px solid #1a4f9c; padding-left: 12px; margin-bottom: 12px; }
+    .card h3 { font-size: 19px; }
+    .btn { border: none; cursor: pointer; border-radius: 8px; padding: 10px 32px; font-size: 18px; font-family: inherit; transition: all .15s; }
+    .btn-blue { background: #2e6fd0; color: #fff; }
+    .btn-blue:hover { background: #1a4f9c; }
+    .btn-red { background: #d03a2e; color: #fff; }
+    .btn-red:hover { background: #b02a20; }
+    .btn-red.small { padding: 7px 16px; font-size: 15px; border-radius: 6px; }
+
+    /* ---------- 登录 ---------- */
+    #screen-login .login-box { max-width: 640px; margin: 44px auto 0; padding: 30px 52px; }
+    #screen-login .sys-title { text-align: center; color: #1a4f9c; font-size: 34px; font-weight: 700; letter-spacing: 5px; margin-bottom: 8px; }
+    #screen-login .sys-sub { text-align: center; color: #888; font-size: 15px; margin-bottom: 24px; }
+    .form-row { display: flex; align-items: center; margin-bottom: 18px; }
+    .form-row label { width: 130px; text-align: right; padding-right: 16px; font-size: 19px; color: #333; }
+    .form-row input { flex: 1; padding: 10px 16px; border: 2px solid #c2ccd8; border-radius: 6px; font-size: 19px; outline: none; }
+    .form-row input:focus { border-color: #2e6fd0; box-shadow: 0 0 0 3px rgba(46,111,208,.15); }
+    .login-tip { margin-top: 16px; font-size: 14px; color: #999; text-align: center; }
+
+    /* ---------- 信息核对 ---------- */
+    .stu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 6px; }
+    .stu-item { background: #f4f7fb; border: 1px solid #dfe7f1; border-radius: 10px; padding: 10px 18px; }
+    .stu-item .k { font-size: 14px; color: #7a8ba1; margin-bottom: 3px; }
+    .stu-item .v { font-size: 21px; font-weight: 700; color: #d03a2e; }
+    .stu-item .v.plain { color: #222; }
+    .exp-list { margin-top: 12px; }
+    .exp-list ol { columns: 2; column-gap: 46px; padding-left: 26px; font-size: 17px; line-height: 1.8; }
+    .exp-list li.will { background: linear-gradient(90deg, #fff3cd, transparent); border-radius: 6px; font-weight: 700; color: #b8860b; padding: 0 10px; }
+    .time-note { margin-top: 10px; color: #d03a2e; font-weight: 700; font-size: 16px; }
+    .draw-zone { position: fixed; right: 34px; bottom: 108px; z-index: 50; }
+    .draw-btn {
+      background: #d03a2e; color: #fff; font-size: 24px; font-weight: 700; font-family: inherit;
+      padding: 14px 38px; border: none; border-radius: 12px; cursor: pointer;
+      animation: pulse 1.4s infinite; letter-spacing: 4px;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(208,58,46,.55); }
+      70% { box-shadow: 0 0 0 22px rgba(208,58,46,0); }
+      100% { box-shadow: 0 0 0 0 rgba(208,58,46,0); }
+    }
+    .fs-hint {
+      position: fixed; right: 34px; bottom: 12px; z-index: 90;
+      background: rgba(15,30,60,.75); color: #fff; font-size: 15px;
+      padding: 8px 22px; border-radius: 24px; letter-spacing: 1px;
+      display: none; align-items: center; gap: 10px;
+    }
+    .fs-hint.show { display: inline-flex; }
+    .fs-hint .key { background: #fff; color: #1a4f9c; font-weight: 700; border-radius: 5px; padding: 2px 10px; font-size: 14px; }
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(10,25,55,.62); z-index: 100; align-items: center; justify-content: center; }
+    .overlay.show { display: flex; }
+    .draw-modal { background: #fff; border-radius: 16px; padding: 36px 70px; text-align: center; min-width: 560px; }
+    .draw-modal .count { font-size: 70px; font-weight: 800; color: #1a4f9c; }
+    .draw-modal .result-title { font-size: 21px; color: #444; margin-bottom: 12px; }
+    .draw-modal .result-exp { font-size: 30px; font-weight: 800; color: #d03a2e; letter-spacing: 2px; margin-bottom: 26px; }
+
+    /* ---------- 实验界面 ---------- */
+    .exam-head {
+      background: #fff; border-radius: 12px; padding: 10px 26px; display: flex;
+      align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.08); margin-bottom: 12px;
+    }
+    .exam-head .stu { font-size: 17px; color: #d03a2e; font-weight: 700; display: flex; gap: 24px; flex-wrap: wrap; }
+    .exam-head .stu .plain { color: #333; }
+    .timer { font-size: 30px; font-weight: 800; color: #1a56d6; font-family: Consolas, monospace; }
+    .hw-status { font-size: 16px; font-weight: 700; color: #1d9e4f; display: flex; align-items: center; gap: 8px; }
+    .hw-status::before { content: ""; width: 11px; height: 11px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+    .exam-cols { display: grid; grid-template-columns: 1fr 430px; gap: 14px; align-items: start; }
+    .steps h2 { font-size: 19px; margin-bottom: 8px; }
+    .steps h2 .step-no { background: #2e6fd0; color: #fff; border-radius: 6px; padding: 2px 12px; margin-right: 8px; font-size: 16px; }
+    .diagrams { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+    .diagram-box { border: 1px solid #dfe7f1; background: #fbfdff; border-radius: 10px; padding: 8px; flex: 1; min-width: 370px; }
+    .diagram-box .cap { text-align: center; font-size: 13px; color: #556; padding-top: 4px; }
+    .diagram-box svg { display: block; margin: 0 auto; height: 165px; width: auto; }
+    .switch-ctrl { margin: 6px 0 4px; display: flex; align-items: center; gap: 14px; }
+    .switch-ctrl .st { font-size: 16px; font-weight: 700; }
+    .toggle { width: 60px; height: 30px; border-radius: 15px; background: #c3cdd9; border: none; position: relative; cursor: pointer; transition: background .2s; }
+    .toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+    .toggle.on { background: #22c55e; }
+    .toggle.on::after { left: 33px; }
+    .data-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    .data-table th, .data-table td { border: 2px solid #a9b6c6; padding: 6px 8px; text-align: center; font-size: 16px; }
+    .data-table th { background: #eaf1fa; color: #1a4f9c; font-size: 16px; }
+    .data-table td input {
+      width: 120px; padding: 5px 8px; border: 2px solid #2e6fd0; border-radius: 5px;
+      text-align: center; font-size: 16px; color: #1a4f9c; background: #f2f7ff; outline: none;
+    }
+    .data-table td input:focus { box-shadow: 0 0 0 3px rgba(46,111,208,.2); }
+    .data-table td input.grey { background: #d7dde4; border-color: #c2ccd8; color: #889; font-size: 13px; }
+    .data-table td input:disabled { cursor: not-allowed; }
+    .saved-mark { color: #1d9e4f; font-weight: 700; font-size: 14px; }
+    .avg-hint { font-size: 12px; color: #889; display: block; }
+    .score-note { font-size: 13px; color: #667; margin-top: 6px; line-height: 1.6; }
+    .submit-row { text-align: right; margin-top: 8px; }
+    .log-panel { background: #0d1117; color: #3fd06a; border-radius: 12px; padding: 12px 16px; font-family: Consolas, "Courier New", monospace; font-size: 13.5px; line-height: 1.7; height: 440px; overflow-y: auto; }
+    .log-panel .t { color: #6a9955; }
+    .log-panel .pc { color: #569cd6; }
+    .log-panel .scm { color: #dcdcaa; }
+    .log-panel .ok { color: #3fd06a; font-weight: 700; }
+    .log-panel h3 { color: #cfd8dc; font-size: 14px; margin-bottom: 6px; font-family: inherit; }
+
+    /* ---------- 评分页 ---------- */
+    .score-table { width: 100%; border-collapse: collapse; font-size: 16px; margin-top: 6px; }
+    .score-table th, .score-table td { border: 2px solid #b3c0cf; padding: 6px 9px; text-align: center; }
+    .score-table th { background: #2e6fd0; color: #fff; font-weight: 600; font-size: 16px; }
+    .score-table td.hl { color: #1d9e4f; font-weight: 700; }
+    .score-table .sub { font-size: 12px; color: #667; font-weight: 400; }
+    .total-box { display: flex; align-items: center; gap: 20px; }
+    .total-num { font-size: 50px; font-weight: 800; color: #d03a2e; }
+    .total-num small { font-size: 20px; color: #666; font-weight: 600; }
+    .total-desc { font-size: 14px; color: #555; line-height: 1.7; }
+    footer { text-align: center; color: #a5b0bd; font-size: 13px; padding: 12px 0 16px; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>广南省物理实验操作考试系统</h1>
+    <div class="sub">基于传感器的学生实验自动评价系统 · 华侨城(高级)中学物理组研制</div>
+  </div>
+
+  <div class="exam-stage">
+    <!-- ============ 屏幕1：登录 ============ -->
+    <section class="screen active" id="screen-login">
+      <div class="login-box card">
+        <div class="sys-title">广南省物理实验操作考试系统</div>
+        <div class="sys-sub">GUANGNAN PHYSICS EXPERIMENT OPERATION EXAMINATION SYSTEM</div>
+        <div class="form-row">
+          <label>准考证号：</label>
+          <input id="in-ticket" type="text" placeholder="请输入准考证号" maxlength="12" />
+        </div>
+        <div class="form-row">
+          <label>密　　码：</label>
+          <input id="in-pass" type="password" placeholder="请输入密码" maxlength="20" />
+        </div>
+        <div style="text-align:center; margin-top: 22px;">
+          <button class="btn btn-blue" id="btn-login" style="width: 220px; padding: 12px 0; font-size: 20px;">登 录</button>
+        </div>
+        <div class="login-tip">※ 模拟环境：准考证号与密码可任意输入后进入系统（登录后将进入全屏模式）</div>
+      </div>
+    </section>
+
+    <!-- ============ 屏幕2：考生信息 + 抽签 ============ -->
+    <section class="screen" id="screen-info">
+      <div class="card">
+        <h2>欢迎进入物理实验操作考试系统，请核对考生信息：</h2>
+        <div class="stu-grid">
+          <div class="stu-item"><div class="k">考生姓名</div><div class="v">张三</div></div>
+          <div class="stu-item"><div class="k">身份证件末6位</div><div class="v">320716</div></div>
+          <div class="stu-item"><div class="k">准考证号</div><div class="v" id="show-ticket">—</div></div>
+          <div class="stu-item"><div class="k">学校</div><div class="v plain">华侨城(高级)中学</div></div>
+        </div>
+        <div class="exp-list">
+          <h3 style="margin-bottom: 12px; color:#333;">高中物理必考实验（共 21 个，系统将随机抽取其中 1 个）</h3>
+          <ol id="exp-ol">
+            <li>长度的测量（刻度尺、游标卡尺、螺旋测微器的使用）</li>
+            <li>用打点计时器研究匀变速直线运动</li>
+            <li>探究弹簧弹力与形变量的关系</li>
+            <li>验证力的平行四边形定则</li>
+            <li>探究加速度与力、质量的关系</li>
+            <li>探究平抛运动的特点</li>
+            <li>验证机械能守恒定律</li>
+            <li>用单摆测定重力加速度</li>
+            <li>描绘小电珠的伏安特性曲线</li>
+            <li class="will">用伏安法测小电珠的电阻</li>
+            <li>测定金属丝的电阻率</li>
+            <li>测定电源的电动势和内阻</li>
+            <li>练习使用多用电表</li>
+            <li>探究影响感应电流方向的因素</li>
+            <li>探究变压器原、副线圈电压与匝数的关系</li>
+            <li>用油膜法估测油酸分子的大小</li>
+            <li>测定玻璃的折射率</li>
+            <li>用双缝干涉测量光的波长</li>
+            <li>验证动量守恒定律</li>
+            <li>探究气体等温变化的规律</li>
+            <li>观察电容器的充、放电现象</li>
+          </ol>
+        </div>
+        <div class="time-note">※ 你有 15 分钟的时间来完成本次实验</div>
+      </div>
+      <div class="draw-zone">
+        <button class="draw-btn" id="btn-draw">请点击抽签 ▶</button>
+      </div>
+    </section>
+
+    <!-- ============ 抽签弹窗 ============ -->
+    <div class="overlay" id="draw-overlay">
+      <div class="draw-modal">
+        <div id="draw-counting">
+          <div style="font-size:22px; color:#666; margin-bottom:20px;">系统正在随机抽取考题，请稍候……</div>
+          <div class="count" id="draw-count">3</div>
+        </div>
+        <div id="draw-result" style="display:none;">
+          <div class="result-title">你的实验是</div>
+          <div class="result-exp">实验十 · 用伏安法测小电珠的电阻</div>
+          <button class="btn btn-blue" id="btn-go-exam" style="width: 280px;">进入实验</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 屏幕3：实验界面 ============ -->
+    <section class="screen" id="screen-exam">
+      <div class="exam-head">
+        <div class="stu">
+          <span>准考证号: <span id="head-ticket">—</span></span>
+          <span>姓名: 张三</span>
+          <span class="plain">学校: 华侨城(高级)中学</span>
+          <span class="plain">年级: 高二</span>
+        </div>
+        <div class="hw-status" id="hw-status">仪器已连接 · 自检通过</div>
+        <div style="font-size:17px;">剩余时间：<span class="timer" id="timer">15:00</span></div>
+      </div>
+
+      <div class="exam-cols">
+        <div class="card steps">
+          <h2><span class="step-no">步骤1</span>请按原理图连接实物图</h2>
+          <div class="diagrams">
+            <div class="diagram-box">
+              <svg viewBox="0 0 400 250" width="100%">
+                <g stroke="#333" stroke-width="1.8" fill="none">
+                  <circle cx="80" cy="55" r="20" />
+                  <line x1="66" y1="41" x2="94" y2="69"/><line x1="94" y1="41" x2="66" y2="69"/>
+                  <circle cx="230" cy="115" r="20"/>
+                  <line x1="216" y1="101" x2="244" y2="129"/><line x1="244" y1="101" x2="216" y2="129"/>
+                  <circle cx="130" cy="115" r="18"/>
+                  <line x1="117" y1="106" x2="143" y2="124"/><line x1="143" y1="106" x2="117" y2="124"/>
+                  <rect x="150" y="185" width="100" height="18" rx="3"/>
+                  <line x1="168" y1="185" x2="196" y2="185" stroke-width="3"/>
+                  <line x1="196" y1="177" x2="196" y2="193" stroke-width="2"/>
+                  <line x1="60" y1="224" x2="72" y2="224" stroke-width="4"/>
+                  <line x1="84" y1="224" x2="92" y2="224" stroke-width="2.4"/>
+                  <line x1="106" y1="224" x2="118" y2="224" stroke-width="4"/>
+                  <line x1="130" y1="224" x2="150" y2="224" stroke-width="2"/>
+                  <line x1="205" y1="224" x2="240" y2="224" stroke-width="2"/>
+                  <line x1="240" y1="212" x2="240" y2="236" stroke-width="2.6"/>
+                  <line x1="252" y1="212" x2="252" y2="236" stroke-width="2.6"/>
+                  <line x1="252" y1="224" x2="300" y2="224" stroke-width="2"/>
+                  <line x1="300" y1="224" x2="300" y2="115" stroke-width="2"/>
+                  <line x1="300" y1="115" x2="250" y2="115" stroke-width="2"/>
+                  <line x1="148" y1="115" x2="230" y2="115" stroke-width="2"/>
+                  <line x1="130" y1="97" x2="130" y2="55" stroke-width="2"/>
+                  <line x1="130" y1="55" x2="100" y2="55" stroke-width="2"/>
+                  <line x1="80" y1="35" x2="80" y2="55" stroke-width="2"/>
+                  <line x1="80" y1="55" x2="80" y2="133" stroke-width="2"/>
+                  <line x1="80" y1="133" x2="80" y2="180" stroke-width="2"/>
+                  <line x1="80" y1="180" x2="60" y2="180" stroke-width="2"/>
+                  <line x1="60" y1="180" x2="60" y2="224" stroke-width="2"/>
+                  <line x1="150" y1="194" x2="150" y2="224" stroke-width="2"/>
+                  <line x1="150" y1="185" x2="180" y2="185" stroke-width="2"/>
+                  <line x1="196" y1="185" x2="240" y2="185" stroke-width="2"/>
+                  <line x1="240" y1="185" x2="300" y2="185" stroke-width="2"/>
+                  <line x1="300" y1="185" x2="300" y2="224" stroke-width="2"/>
+                </g>
+                <g fill="#333" font-size="17" font-family="Times New Roman, serif" font-style="italic" text-anchor="middle">
+                  <text x="80" y="26">V</text><text x="256" y="120">A</text><text x="130" y="93">L</text>
+                  <text x="204" y="176" font-size="15">R</text>
+                  <text x="66" y="245" font-size="14">－</text><text x="110" y="245" font-size="14">＋</text>
+                  <text x="246" y="205" font-size="15">S</text>
+                </g>
+                <g fill="#555" font-size="13" text-anchor="middle">
+                  <text x="196" y="218">滑动变阻器</text><text x="150" y="245">电源(3V)</text>
+                </g>
+              </svg>
+              <div class="cap">实验原理图</div>
+            </div>
+            <div class="diagram-box">
+              <svg viewBox="0 0 560 260" width="100%">
+                <g stroke="#333" stroke-width="1.6" fill="none">
+                  <rect x="18" y="18" width="120" height="52" rx="6" fill="#eef3fa"/>
+                  <rect x="34" y="30" width="38" height="26" rx="3" fill="#cfe0f5"/>
+                  <rect x="84" y="30" width="38" height="26" rx="3" fill="#f5d9cf"/>
+                  <circle cx="22" cy="44" r="6" fill="#333"/><circle cx="146" cy="44" r="6" fill="#c0392b"/>
+                  <rect x="330" y="12" width="210" height="70" rx="6" fill="#eef3fa"/>
+                  <circle cx="425" cy="47" r="27" fill="#fff"/><path d="M407 58 Q425 30 443 58" stroke="#333" fill="none"/>
+                  <circle cx="345" cy="62" r="6" fill="#333"/><circle cx="385" cy="62" r="6" fill="#c0392b"/><circle cx="415" cy="62" r="6" fill="#c0392b"/>
+                  <rect x="330" y="100" width="210" height="70" rx="6" fill="#eef3fa"/>
+                  <circle cx="425" cy="135" r="27" fill="#fff"/><path d="M407 146 Q425 118 443 146" stroke="#333" fill="none"/>
+                  <circle cx="345" cy="150" r="6" fill="#333"/><circle cx="385" cy="150" r="6" fill="#c0392b"/><circle cx="415" cy="150" r="6" fill="#c0392b"/>
+                  <rect x="205" y="108" width="92" height="54" rx="6" fill="#eef3fa"/>
+                  <circle cx="251" cy="130" r="14" fill="#f9e79f" stroke="#b7950b" id="svg-lamp"/>
+                  <circle cx="223" cy="150" r="6" fill="#333"/><circle cx="279" cy="150" r="6" fill="#c0392b"/>
+                  <rect x="150" y="190" width="170" height="34" rx="4" fill="#eef3fa"/>
+                  <line x1="165" y1="204" x2="305" y2="204" stroke-width="2.4"/>
+                  <circle cx="165" cy="216" r="6" fill="#c0392b"/><circle cx="245" cy="216" r="6" fill="#333"/><circle cx="305" cy="216" r="6" fill="#c0392b"/>
+                  <circle cx="165" cy="190" r="6" fill="#333"/>
+                  <rect x="24" y="196" width="90" height="34" rx="4" fill="#eef3fa"/>
+                  <circle cx="40" cy="216" r="6" fill="#c0392b"/><circle cx="96" cy="216" r="6" fill="#c0392b"/>
+                  <line x1="42" y1="214" x2="90" y2="206" stroke="#333" stroke-width="2.4" id="svg-knife"/>
+                </g>
+                <g stroke-width="3" fill="none" stroke-linecap="round">
+                  <path d="M146 44 L196 44 L196 258 L120 258 L120 252" stroke="#c0392b"/>
+                  <path d="M96 216 L150 216" stroke="#c0392b"/>
+                  <path d="M305 204 L340 204 L340 150" stroke="#c0392b"/>
+                  <path d="M245 216 L245 258 L18 258 L18 44" stroke="#333"/>
+                  <path d="M279 150 L310 150 L310 20 L345 62" stroke="#2e8b57"/>
+                  <path d="M385 62 L385 90 L290 90 L290 150" stroke="#333"/>
+                  <path d="M223 150 L223 170 L300 170 L300 150" stroke="#333"/>
+                </g>
+                <g fill="#1a4f9c" font-size="15" font-weight="700" text-anchor="middle" font-family="Arial">
+                  <text x="10" y="32">B</text><text x="154" y="32">A</text>
+                  <text x="330" y="80">G</text><text x="385" y="80">H</text><text x="415" y="80">I</text>
+                  <text x="211" y="140">J</text><text x="291" y="140">K</text>
+                  <text x="330" y="168">L</text><text x="385" y="168">M</text><text x="415" y="168">N</text>
+                  <text x="160" y="184">F</text><text x="150" y="232">D</text>
+                  <text x="28" y="208">O</text><text x="102" y="208">P</text>
+                </g>
+              </svg>
+              <div class="cap">实物图（端点 A—P，传感器已接入 · 模拟连接正常）</div>
+            </div>
+          </div>
+          <div class="switch-ctrl">
+            <button class="toggle" id="sw-toggle" title="闭合/断开开关"></button>
+            <span class="st" id="sw-state" style="color:#d03a2e;">开关处于断开状态 —— 请闭合开关</span>
+          </div>
+
+          <h2 style="margin-top:26px;"><span class="step-no">步骤2</span>请测量 3 组不同的电压、电流值并填入相应表格中</h2>
+          <table class="data-table">
+            <tr><th style="width:120px;"></th><th>电压 (V)</th><th>电流 (A)</th><th>电阻 (Ω)</th><th style="width:200px;"></th></tr>
+            <tr>
+              <td>第1组</td>
+              <td><input data-g="0" data-k="U" placeholder="U₁"></td>
+              <td><input data-g="0" data-k="I" placeholder="I₁"></td>
+              <td><input data-g="0" data-k="R" placeholder="R₁=U₁/I₁"></td>
+              <td><button class="btn btn-red small save-row" data-g="0">保存当前数据</button><span class="saved-mark" id="mark0" hidden>✔ 已保存</span></td>
+            </tr>
+            <tr>
+              <td>第2组</td>
+              <td><input data-g="1" data-k="U" placeholder="U₂"></td>
+              <td><input data-g="1" data-k="I" placeholder="I₂"></td>
+              <td><input data-g="1" data-k="R" placeholder="R₂=U₂/I₂"></td>
+              <td><button class="btn btn-red small save-row" data-g="1">保存当前数据</button><span class="saved-mark" id="mark1" hidden>✔ 已保存</span></td>
+            </tr>
+            <tr>
+              <td>第3组</td>
+              <td><input data-g="2" data-k="U" placeholder="U₃"></td>
+              <td><input data-g="2" data-k="I" placeholder="I₃"></td>
+              <td><input data-g="2" data-k="R" placeholder="R₃=U₃/I₃"></td>
+              <td><button class="btn btn-red small save-row" data-g="2">保存当前数据</button><span class="saved-mark" id="mark2" hidden>✔ 已保存</span></td>
+            </tr>
+            <tr>
+              <td>平均值</td>
+              <td colspan="2"><input class="grey" disabled value="— 无需输入 —" style="width:210px;"><span class="avg-hint">（电压、电流平均值由计算机直接判定）</span></td>
+              <td><input data-g="3" data-k="R" placeholder="R=(R₁+R₂+R₃)/3" style="width:190px;"></td>
+              <td><button class="btn btn-red small save-row" data-g="3">保存当前数据</button><span class="saved-mark" id="mark3" hidden>✔ 已保存</span></td>
+            </tr>
+          </table>
+          <div class="score-note">评分说明：电压、电流<b>数值大小不作要求 —— 数值分 3' 全部给分</b>，仅按小数点位数评 2'；电阻按小数点位数 2' ＋ 计算精度 3'（与 R=U/I 比对）给分。</div>
+          <div class="score-note" style="margin-top:4px;"><b>步骤3：</b>请计算平均值 R=(R₁+R₂+R₃)/3 并填入表中平均值一行，然后点击右下角“完成并提交”。</div>
+          <div class="submit-row">
+            <button class="btn btn-blue" id="btn-submit" style="padding:10px 36px; font-size:19px;">完成并提交</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="card" style="padding:20px 22px;">
+            <div class="log-panel" id="log-panel">
+              <h3>≡ SCM ↔ PC 通信日志（USB 串口 · 模拟）</h3>
+              <div id="log-body"></div>
+            </div>
+            <div class="score-note">
+              通信协议：识别码(PC=S98S / SCM=S99S) + 数据类码(CM/LL/DT) + 信息 + 结束码(YY)。<br/>
+              提示：所有数据请保留到小数点后 2 位。
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 屏幕4：评分结果 ============ -->
+    <section class="screen" id="screen-result">
+      <div class="card">
+        <h2>考试结束 —— 计算机自动评分结果</h2>
+        <h3 style="margin: 8px 0 8px; color:#1a4f9c;">4.1　接线类得分（操作分 · 满分 45'）</h3>
+        <table class="score-table">
+          <tr><th>序号</th><th>端点接线</th><th>scm 向 pc 传递</th><th>pc 评分</th><th>得分</th></tr>
+          <tr><td>4.1.1</td><td>B、C、G、J 四个端点最低3条线是否连接</td><td>BCGJ connected</td><td>3×5'</td><td class="hl">15</td></tr>
+          <tr><td>4.1.2</td><td>H、K、L 三个端点最低2条线是否连接</td><td>HKL# connected</td><td>2×5'</td><td class="hl">10</td></tr>
+          <tr><td>4.1.3</td><td>M、F 二个端点最低1条线是否连接</td><td>MF## connected</td><td>5'</td><td class="hl">5</td></tr>
+          <tr><td>4.1.4</td><td>D、P 二个端点最低1条线是否连接</td><td>DP## connected</td><td>5'</td><td class="hl">5</td></tr>
+          <tr><td>4.1.5</td><td>A、O 二个端点最低1条线是否连接</td><td>AO## connected</td><td>5'</td><td class="hl">5</td></tr>
+          <tr><td>4.1.6</td><td>开关是否闭合</td><td>SWICH on</td><td>5'</td><td class="hl">5</td></tr>
+          <tr><td colspan="4" style="text-align:right; font-weight:700;">接线类小计</td><td class="hl">45</td></tr>
+        </table>
+
+        <h3 style="margin: 6px 0 6px; color:#1a4f9c;">4.2　读数计算类得分（计算分 · 满分 50'，与操作分分离）</h3>
+        <table class="score-table" id="t42">
+          <tr><th>组别</th><th>电压 U (V)<br><span class="sub" style="color:#dbe8ff;">满分 5'（小数点2'＋数值分3'全给）</span></th><th>电流 I (A)<br><span class="sub" style="color:#dbe8ff;">满分 5'（小数点2'＋数值分3'全给）</span></th><th>电阻 R (Ω)<br><span class="sub" style="color:#dbe8ff;">满分 5'（小数点2'＋精度3'）</span></th><th>小计</th></tr>
+        </table>
+        <div class="score-note">
+          电压、电流：数值大小不作要求 —— 数值大小的 3' 全部给分（未作答除外），仅按小数点位数评 2'：保留 2 位 = 2'，1 位 / 3 位 = 1'，0 位 / 4 位 = 0.5'，其他 = 0.2'。<br/>
+          电阻：小数点得分（同上）＋ 计算精度得分 score = (110% − |R填 − R算|/R算) × 3，封顶 3'；其中 R算 = U填/I填，平均值 R算 = (R₁+R₂+R₃)/3。
+        </div>
+
+        <div class="total-box" style="margin-top: 18px;">
+          <div class="total-num" id="total-num">0<small> / 95</small></div>
+          <div class="total-desc" id="total-desc">
+            操作分与计算分分离，互不干扰；计算机对每一条接线、每一个读数独立判分。
+          </div>
+        </div>
+        <div class="submit-row">
+          <button class="btn btn-blue" onclick="location.reload()">重新模拟一次</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="fs-hint" id="fs-hint">全屏模式已开启 · 按 <span class="key">F11</span> 退出全屏</div>
+
+  <footer>本站为基于传感器的学生实验自动评价系统 · 考试流程演示站（硬件通信均为模拟数据）</footer>
+
+  <script>
+    /* ================= 全局状态 ================= */
+    const SCREENS = ['login', 'info', 'exam', 'result'];
+    let examState = {
+      ticket: '', switchOn: false,
+      saved: [false, false, false, false],
+      student: [{}, {}, {}, {}],   // 学生输入
+      sensor: [                    // scm 实测值（仅用于通信日志演示，U/I 给分不比对数值大小）
+        { U: 1.8254, I: 0.22456 },
+        { U: 2.1043, I: 0.25197 },
+        { U: 2.3689, I: 0.27263 },
+      ],
+      remaining: 15 * 60, timerId: null, submitted: false,
+    };
+    for (const g of examState.sensor) g.R = g.U / g.I;
+
+    function show(name) {
+      SCREENS.forEach(s => document.getElementById('screen-' + s).classList.toggle('active', s === name));
+      window.scrollTo(0, 0);
+    }
+
+    /* ================= 通信日志（模拟 SCM↔PC 协议） ================= */
+    const logBody = document.getElementById('log-body');
+    function log(line, cls) {
+      cls = cls || '';
+      const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+      const div = document.createElement('div');
+      div.innerHTML = '<span class="t">[' + t + ']</span> <span class="' + cls + '">' + line + '</span>';
+      logBody.appendChild(div);
+      logBody.parentElement.scrollTop = logBody.parentElement.scrollHeight;
+    }
+    function pc2scm(msg) { log('PC→SCM : S98S ' + msg + ' YY', 'pc'); }
+    function scm2pc(msg) { log('SCM→PC : S99S ' + msg + ' YY', 'scm'); }
+
+    /* ================= 全屏 ================= */
+    function enterFullscreen() {
+      const el = document.documentElement;
+      if (el.requestFullscreen) { el.requestFullscreen().catch(function(){}); }
+      document.getElementById('fs-hint').classList.add('show');
+    }
+
+    /* ================= 屏幕1：登录 ================= */
+    function doLogin() {
+      const tk = document.getElementById('in-ticket').value.trim();
+      const pw = document.getElementById('in-pass').value;
+      if (!tk || !pw) { alert('请输入准考证号和密码（模拟环境下可任意输入）'); return; }
+      examState.ticket = tk;
+      document.getElementById('show-ticket').textContent = tk;
+      document.getElementById('head-ticket').textContent = tk;
+      enterFullscreen();          // 登录后进入全屏模式，右下角提示按 F11 退出
+      show('info');
+      log('考生 ' + tk + ' 登录成功，进入抽签环节', 'ok');
+    }
+    document.getElementById('btn-login').addEventListener('click', doLogin);
+    document.getElementById('in-ticket').addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
+
+    /* ================= 屏幕2：抽签 ================= */
+    document.getElementById('btn-draw').addEventListener('click', function () {
+      const ov = document.getElementById('draw-overlay');
+      ov.classList.add('show');
+      document.getElementById('draw-counting').style.display = 'block';
+      document.getElementById('draw-result').style.display = 'none';
+      let n = 3;
+      document.getElementById('draw-count').textContent = n;
+      const it = setInterval(function () {
+        n--;
+        if (n > 0) { document.getElementById('draw-count').textContent = n; }
+        else {
+          clearInterval(it);
+          document.getElementById('draw-counting').style.display = 'none';
+          document.getElementById('draw-result').style.display = 'block';
+          scm2pc('CM draw EX010 YY');
+          pc2scm('CM get draw EX010 YY');
+        }
+      }, 1000);
+    });
+    document.getElementById('btn-go-exam').addEventListener('click', function () {
+      document.getElementById('draw-overlay').classList.remove('show');
+      show('exam');
+      startExam();
+    });
+
+    /* ================= 屏幕3：实验 ================= */
+    function startExam() {
+      pc2scm('CM reset YY');          // 开机自检
+      setTimeout(function () { scm2pc('CM get reset YY'); }, 600);
+      setTimeout(function () { log('自检通过：仪器可用，通信正常', 'ok'); }, 1200);
+      examState.timerId = setInterval(function () {
+        examState.remaining--;
+        if (examState.remaining <= 0) { doSubmit(true); return; }
+        const m = Math.floor(examState.remaining / 60), s = examState.remaining % 60;
+        document.getElementById('timer').textContent =
+          String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        if (examState.remaining % 10 === 0 && examState.remaining < 900) {
+          pc2scm('CM linked YY');
+          setTimeout(function () { scm2pc('CM linked YY'); }, 350);   // 每10s心跳
+        }
+      }, 1000);
+    }
+
+    document.getElementById('sw-toggle').addEventListener('click', function () {
+      examState.switchOn = !examState.switchOn;
+      this.classList.toggle('on', examState.switchOn);
+      const lamp = document.getElementById('svg-lamp');
+      const knife = document.getElementById('svg-knife');
+      const st = document.getElementById('sw-state');
+      if (examState.switchOn) {
+        st.textContent = '开关闭合，电路正常工作 ✔';
+        st.style.color = '#1d9e4f';
+        knife.setAttribute('transform', 'rotate(-14 40 216)');
+        lamp.setAttribute('fill', '#ffe680');
+        lamp.setAttribute('stroke', '#e6a817');
+        scm2pc('LL BCGJ connected YY'); setTimeout(function () { pc2scm('LL get BCGJ connected YY'); }, 300);
+        setTimeout(function () { scm2pc('LL HKL# connected YY'); pc2scm('LL get HKL# connected YY'); }, 700);
+        setTimeout(function () { scm2pc('LL MF## connected YY'); pc2scm('LL get MF## connected YY'); }, 1100);
+        setTimeout(function () { scm2pc('LL DP## connected YY'); pc2scm('LL get DP## connected YY'); }, 1500);
+        setTimeout(function () { scm2pc('LL AO## connected YY'); pc2scm('LL get AO## connected YY'); }, 1900);
+        setTimeout(function () { scm2pc('LL SWICH on YY'); pc2scm('LL get SWICH on YY'); }, 2300);
+        setTimeout(function () { log('接线检测全部通过：操作类得分 45/45（提交后计入）', 'ok'); }, 2700);
+      } else {
+        st.textContent = '开关处于断开状态 —— 请闭合开关';
+        st.style.color = '#d03a2e';
+        knife.removeAttribute('transform');
+        lamp.setAttribute('fill', '#f9e79f');
+        lamp.setAttribute('stroke', '#b7950b');
+        scm2pc('LL SWICH off YY'); pc2scm('LL get SWICH off YY');
+      }
+    });
+
+    document.querySelectorAll('.save-row').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const g = Number(btn.getAttribute('data-g'));
+        const inputs = document.querySelectorAll('input[data-g="' + g + '"]');
+        const vals = {};
+        for (const inp of inputs) {
+          const v = parseFloat(inp.value);
+          if (isNaN(v) || inp.value.trim() === '') { alert('请先填入该行全部数据（保留2位小数）'); return; }
+          vals[inp.getAttribute('data-k')] = v;
+        }
+        examState.student[g] = vals;
+        examState.saved[g] = true;
+        btn.hidden = true;
+        document.getElementById('mark' + g).hidden = false;
+        inputs.forEach(function (i) { i.disabled = true; });
+        if (g < 3) {
+          scm2pc('DT U' + examState.sensor[g].U.toFixed(4) + 'V YY');
+          setTimeout(function () { pc2scm('DT get U' + examState.sensor[g].U.toFixed(4) + 'V YY'); }, 300);
+          setTimeout(function () {
+            scm2pc('DT I' + examState.sensor[g].I.toFixed(5) + 'A YY');
+            pc2scm('DT get I' + examState.sensor[g].I.toFixed(5) + 'A YY');
+          }, 650);
+          setTimeout(function () { log('第' + (g + 1) + '组数据已提交，计算机记录中……', 'ok'); }, 1000);
+        } else {
+          log('平均值 R 已提交，全部数据采集完成', 'ok');
+        }
+      });
+    });
+
+    document.getElementById('btn-submit').addEventListener('click', function () {
+      if (!examState.saved.every(Boolean) && !confirm('尚有未保存的数据行，未保存项将计 0 分，确定提交？')) return;
+      doSubmit(false);
+    });
+
+    /* ================= 评分 ================= */
+    // 小数点得分（instr.doc 规则）：2位=2'，1/3位=1'，0/4位=0.5'，其他=0.2'
+    function decimalScore(x) {
+      const s = String(x);
+      const d = s.indexOf('.') >= 0 ? s.split('.')[1].length : 0;
+      if (d === 2) return 2;
+      if (d === 1 || d === 3) return 1;
+      if (d === 0 || d === 4) return 0.5;
+      return 0.2;
+    }
+    // 计算精度得分：score = (110% - |相对误差|) * 3，封顶 3'
+    function precisionScore(studentVal, calcVal) {
+      if (calcVal === null || calcVal === undefined || !isFinite(calcVal) || calcVal === 0) return 0;
+      const err = Math.abs(studentVal - calcVal) / Math.abs(calcVal);
+      return Math.max(0, Math.min(3, (1.10 - err) * 3));
+    }
+    function fmtUI(stu) {
+      if (stu === undefined) return '<span style="color:#c00">未作答</span><br><span class="sub">0/5</span>';
+      const dec = decimalScore(stu);
+      return stu + '<br><span class="sub">小数点 ' + dec.toFixed(1) + "/2 ＋ 数值分 3/3（不作要求，全给）</span>";
+    }
+    function avgCalc() {
+      const r = examState.student;
+      if (r[0].R !== undefined && r[1].R !== undefined && r[2].R !== undefined) return (r[0].R + r[1].R + r[2].R) / 3;
+      return null;
+    }
+    function fmtR(g) {
+      const stu = examState.student[g].R;
+      if (stu === undefined) return '<span style="color:#c00">未作答</span><br><span class="sub">0/5</span>';
+      const dec = decimalScore(stu);
+      let calc = null;
+      if (g === 3) {
+        calc = avgCalc();
+      } else {
+        const s = examState.student[g];
+        if (s.U !== undefined && s.I !== undefined && s.I !== 0) calc = s.U / s.I;
+      }
+      const prec = precisionScore(stu, calc);
+      const calcTxt = (calc === null) ? 'R算无法核算' : 'R算=' + calc.toFixed(4);
+      return stu + '<br><span class="sub">小数点 ' + dec.toFixed(1) + "' + 精度 " + prec.toFixed(1) + "/3<br>" + calcTxt + '</span>';
+    }
+
+    function doSubmit(auto) {
+      if (examState.submitted) return;
+      examState.submitted = true;
+      clearInterval(examState.timerId);
+      if (auto) log('考试时间到，系统自动提交并评分', 'ok');
+      else log('考生提交答卷，计算机开始自动评分……', 'ok');
+
+      const t42 = document.getElementById('t42');
+      const names = ['第1组', '第2组', '第3组', '平均值'];
+      let calcTotal = 0;
+      for (let g = 0; g < 4; g++) {
+        let rowTotal = 0, uCell, iCell, rCell;
+        if (g === 3) {
+          uCell = '<span class="sub">— 无需输入 —</span>';
+          iCell = '<span class="sub">— 无需输入 —</span>';
+          rCell = fmtR(3);
+          const s = examState.student[3];
+          if (s.R !== undefined) rowTotal += decimalScore(s.R) + precisionScore(s.R, avgCalc());
+        } else {
+          const s = examState.student[g];
+          uCell = fmtUI(s.U);
+          iCell = fmtUI(s.I);
+          rCell = fmtR(g);
+          if (s.U !== undefined) rowTotal += decimalScore(s.U) + 3;   // 数值分3'不作要求，全给
+          if (s.I !== undefined) rowTotal += decimalScore(s.I) + 3;
+          if (s.R !== undefined) {
+            const calc = (s.U !== undefined && s.I !== undefined && s.I !== 0) ? s.U / s.I : null;
+            rowTotal += decimalScore(s.R) + precisionScore(s.R, calc);
+          }
+        }
+        calcTotal += rowTotal;
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + names[g] + '</td><td>' + uCell + '</td><td>' + iCell + '</td><td>' + rCell + '</td><td class="hl">' + rowTotal.toFixed(1) + '</td>';
+        t42.appendChild(tr);
+      }
+
+      const total = 45 + calcTotal;
+      document.getElementById('total-num').innerHTML = total.toFixed(1) + '<small> / 95</small>';
+      document.getElementById('total-desc').innerHTML =
+        '其中接线类（操作分）45，读数计算类（计算分）' + calcTotal.toFixed(1) +
+        '（电压 U₁U₂U₃ 共15 + 电流 I₁I₂I₃ 共15 + 电阻 R₁R₂R₃ 共15 + 平均值 5，满分共 50）。<br>' +
+        (total >= 85 ? '评价：优秀 ✔ —— 电路连接正确，数据规范有效。'
+          : total >= 60 ? '评价：良好 —— 部分数据规范性或计算精度有待提高。'
+          : '评价：不合格 —— 请加强电路连接与数据记录规范训练。');
+      show('result');
+    }
+  </script>
+</body>
+</html>
