@@ -1,0 +1,10 @@
+{
+  // Cloudflare Workers 部署配置（静态站点 = 仅静态资源 Worker）
+  "name": "phy-exam",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application",
+    "html_handling": "auto-trailing-slash"
+  }
+}
