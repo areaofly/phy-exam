@@ -59,7 +59,7 @@
     .exp-list ol { columns: 2; column-gap: 46px; padding-left: 26px; font-size: 17px; line-height: 1.8; }
     .exp-list li.will { background: linear-gradient(90deg, #fff3cd, transparent); border-radius: 6px; font-weight: 700; color: #b8860b; padding: 0 10px; }
     .time-note { margin-top: 10px; color: #d03a2e; font-weight: 700; font-size: 16px; }
-    .draw-zone { position: fixed; right: 34px; bottom: 108px; z-index: 50; }
+    .draw-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 18px; }
     .draw-btn {
       background: #d03a2e; color: #fff; font-size: 24px; font-weight: 700; font-family: inherit;
       padding: 14px 38px; border: none; border-radius: 12px; cursor: pointer;
@@ -206,10 +206,10 @@
             <li>观察电容器的充、放电现象</li>
           </ol>
         </div>
-        <div class="time-note">※ 你有 15 分钟的时间来完成本次实验</div>
-      </div>
-      <div class="draw-zone">
-        <button class="draw-btn" id="btn-draw">请点击抽签 ▶</button>
+        <div class="draw-row">
+          <div class="time-note">※ 你有 15 分钟的时间来完成本次实验</div>
+          <button class="draw-btn" id="btn-draw">请点击抽签 ▶</button>
+        </div>
       </div>
     </section>
 
@@ -571,12 +571,14 @@
       btn.addEventListener('click', function () {
         const g = Number(btn.getAttribute('data-g'));
         const inputs = document.querySelectorAll('input[data-g="' + g + '"]');
-        const vals = {};
+        const vals = {}, raws = {};
         for (const inp of inputs) {
           const v = parseFloat(inp.value);
           if (isNaN(v) || inp.value.trim() === '') { alert('请先填入该行全部数据（保留2位小数）'); return; }
           vals[inp.getAttribute('data-k')] = v;
+          raws[inp.getAttribute('data-k')] = inp.value.trim();   // 保留原始输入，用于判定小数点位数
         }
+        vals._raw = raws;
         examState.student[g] = vals;
         examState.saved[g] = true;
         btn.hidden = true;
@@ -617,10 +619,12 @@
       const err = Math.abs(studentVal - calcVal) / Math.abs(calcVal);
       return Math.max(0, Math.min(3, (1.10 - err) * 3));
     }
-    function fmtUI(stu) {
-      if (stu === undefined) return '<span style="color:#c00">未作答</span><br><span class="sub">0/5</span>';
-      const dec = decimalScore(stu);
-      return stu + '<br><span class="sub">小数点 ' + dec.toFixed(1) + "/2 ＋ 数值分 3/3（不作要求，全给）</span>";
+    function fmtUI(key, g) {
+      const s = examState.student[g];
+      if (s[key] === undefined) return '<span style="color:#c00">未作答</span><br><span class="sub">0/5</span>';
+      const raw = s._raw[key];
+      const dec = decimalScore(raw);
+      return raw + '<br><span class="sub">小数点 ' + dec.toFixed(1) + "/2 ＋ 数值分 3/3（不作要求，全给）</span>";
     }
     function avgCalc() {
       const r = examState.student;
@@ -630,7 +634,8 @@
     function fmtR(g) {
       const stu = examState.student[g].R;
       if (stu === undefined) return '<span style="color:#c00">未作答</span><br><span class="sub">0/5</span>';
-      const dec = decimalScore(stu);
+      const raw = examState.student[g]._raw.R;
+      const dec = decimalScore(raw);
       let calc = null;
       if (g === 3) {
         calc = avgCalc();
@@ -640,7 +645,7 @@
       }
       const prec = precisionScore(stu, calc);
       const calcTxt = (calc === null) ? 'R算无法核算' : 'R算=' + calc.toFixed(4);
-      return stu + '<br><span class="sub">小数点 ' + dec.toFixed(1) + "' + 精度 " + prec.toFixed(1) + "/3<br>" + calcTxt + '</span>';
+      return raw + '<br><span class="sub">小数点 ' + dec.toFixed(1) + "' + 精度 " + prec.toFixed(1) + "/3<br>" + calcTxt + '</span>';
     }
 
     function doSubmit(auto) {
@@ -660,17 +665,17 @@
           iCell = '<span class="sub">— 无需输入 —</span>';
           rCell = fmtR(3);
           const s = examState.student[3];
-          if (s.R !== undefined) rowTotal += decimalScore(s.R) + precisionScore(s.R, avgCalc());
+          if (s.R !== undefined) rowTotal += decimalScore(s._raw.R) + precisionScore(s.R, avgCalc());
         } else {
           const s = examState.student[g];
-          uCell = fmtUI(s.U);
-          iCell = fmtUI(s.I);
+          uCell = fmtUI('U', g);
+          iCell = fmtUI('I', g);
           rCell = fmtR(g);
-          if (s.U !== undefined) rowTotal += decimalScore(s.U) + 3;   // 数值分3'不作要求，全给
-          if (s.I !== undefined) rowTotal += decimalScore(s.I) + 3;
+          if (s.U !== undefined) rowTotal += decimalScore(s._raw.U) + 3;   // 数值分3'不作要求，全给
+          if (s.I !== undefined) rowTotal += decimalScore(s._raw.I) + 3;
           if (s.R !== undefined) {
             const calc = (s.U !== undefined && s.I !== undefined && s.I !== 0) ? s.U / s.I : null;
-            rowTotal += decimalScore(s.R) + precisionScore(s.R, calc);
+            rowTotal += decimalScore(s._raw.R) + precisionScore(s.R, calc);
           }
         }
         calcTotal += rowTotal;
